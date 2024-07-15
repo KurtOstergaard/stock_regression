@@ -32,9 +32,9 @@ autocorrStoch <- function (x, period1 = 10, period2 = 48, avgLength = 3) {
   filt <- stats::filter(filt, c(c2, c3), method = "recursive")
   filt <- c(rep(NA, leadNAs), filt)
   filt <- xts(filt, order.by = index(x))
-#   return(filt)
-# }
-
+  #   return(filt)
+  # }
+  
   # Pearson correlation for each value of lag
   autocorr <- matrix(0, period2, length(filt))
   for (lag in 2: period2) {
@@ -77,7 +77,7 @@ autocorrStoch <- function (x, period1 = 10, period2 = 48, avgLength = 3) {
   }
   dominantCycle <- Spx / Sp
   dominantCycle[is.nan(dominantCycle)] <- 0
- # heatmap(Pwr, Rowv = NA, Colv = NA, na.rm = TRUE, labCol = "", 
+  # heatmap(Pwr, Rowv = NA, Colv = NA, na.rm = TRUE, labCol = "", 
   # add.expr = lines(dominantCycle, col = 'blue'))
   return()
   
