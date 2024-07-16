@@ -1,27 +1,12 @@
 library(tidyverse)
 
 # Read the CSV file
-test_file <- read_csv("AGQ.csv", col_names = TRUE, show_col_types = FALSE)
-
-# Select the relevant columns
-tfG <- test_file %>%
-  select(time:close, Fisher, Fish1:length)
+DG_file <- read_csv("DG.csv", col_names = TRUE, show_col_types = FALSE) |>
+  filter(time > "2011-01-01",
+         time < "2012-11-01") |>
+  select(time:Volume, Hurst, EBSI)
 
 # Define variables
-AvgLength <- 3
-M <- 0
-N <- 0
-X <- 0
-Y <- 0
-alpha1 <- 0
-HP <- rep(NA, nrow(tfG))  # Adjust the length to match the data, initialized with NA
-a1 <- 0
-b1 <- 0
-c1 <- 0
-c2 <- 0
-c3 <- 0
-Filt <- rep(NA, nrow(tfG))
-Lag <- 0
 count <- 0
 Sx <- 0
 Sy <- 0
@@ -43,25 +28,39 @@ R <- matrix(0, nrow = 48, ncol = 2)
 Pwr <- rep(0, 48)
 
 # Highpass filter cyclic components whose periods are shorter than 48 bars
-alpha1 <- (cos(.707 * 360 / 48) + sin(.707 * 360 / 48) - 1) / cos(.707 * 360 / 48)
-Close <- tfG$close
-if (length(Close) >= 3) {
-  HP[3:length(Close)] <- (1 - alpha1 / 2) * (1 - alpha1 / 2) * (Close[3:length(Close)] - 2 * Close[2:(length(Close) - 1)] + Close[1:(length(Close) - 2)]) + 
-    2 * (1 - alpha1) * HP[2:(length(Close) - 1)] - (1 - alpha1) * (1 - alpha1) * HP[1:(length(Close) - 2)]
+highPassFilter <- function(x) {
+  alpha1 <- (cos(sqrt(2)*pi/48)+sin(sqrt(2)*pi/48)-1)/cos(sqrt(2)*pi/48)
+  HP <- (1-alpha1/2)*(1-alpha1/2)*(x-2*lag(x)+lag(x,2))
+  HP <- HP[-c(1,2)]
+  HP <- filter(HP, c(2*(1-alpha1), -1*(1-alpha1)*(1-alpha1)), method="recursive")
+  HP <- c(NA, NA, HP)
+  HP <- xts(HP, order.by=index(x))
+  colnames(HP) = 'highPassFilter'
+  return(HP)
 }
+
+# Smooth with a Super Smoother Filter from equation 3-3
+superSmoother <- function(x) {
+  a1 <- exp(-sqrt(2)*pi/10)
+  b1 <- 2*a1*cos(sqrt(2)*pi/10)
+  c2 <- b1
+  c3 <- -a1*a1
+  c1 <- 1-c2-c3
+  filt <- c1*(x+lag(x))/2
+  leadNAs <- sum(is.na(filt))
+  filt <- filt[-c(1:leadNAs)]
+  filt <- filter(filt, c(c2, c3), method="recursive")
+  filt <- c(rep(NA,leadNAs), filt)
+  filt <- xts(filt, order.by=index(x))
+  colnames(filt) = 'superSmoother'
+  return(filt)
+}
+
 
 # Remove initial NAs from HP
 HP <- na.omit(HP)
 
-# Smooth with a Super Smoother Filter from equation 3-3
-a1 <- exp(-1.414 * 3.14159 / 10)
-b1 <- 2 * a1 * cos(1.414 * 180 / 10)
-c2 <- b1
-c3 <- -a1 * a1
-c1 <- 1 - c2 - c3
-if (length(HP) >= 3) {
-  Filt[3:length(HP)] <- c1 * (HP[3:length(HP)] + HP[2:(length(HP) - 1)]) / 2 + c2 * Filt[2:(length(HP) - 1)] + c3 * Filt[1:(length(HP) - 2)]
-}
+
 
 # Remove initial NAs from Filt
 Filt <- na.omit(Filt)
